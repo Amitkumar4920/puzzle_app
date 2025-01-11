@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sliding Puzzle Game</title>
+    <style>
+        .game-container {
+            max-width: 400px;
+            margin: 20px auto;
+            text-align: center;
+            font-family: Arial, sans-serif;
+        }
+        .puzzle-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 5px;
+            margin: 20px auto;
+            width: 300px;
+            background: #f0f0f0;
+            padding: 10px;
+            border-radius: 10px;
+        }
+        .tile {
+            background-color: #4CAF50;
+            color: white;
+            padding: 20px;
+            font-size: 24px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            aspect-ratio: 1;
+            transition: transform 0.2s;
+        }
+        .tile:hover {
+            background-color: #45a049;
+            transform: scale(1.05);
+        }
+        .empty {
+            background-color: #f0f0f0;
+            cursor: default;
+        }
+        .empty:hover {
+            background-color: #f0f0f0;
+            transform: none;
+        }
+        .controls {
+            margin: 20px 0;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+        .btn {
+            background-color: #008CBA;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .btn:hover {
+            background-color: #007399;
+        }
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin: 20px 0;
+            padding: 10px;
+            background: #f0f0f0;
+            border-radius: 5px;
+        }
+        .difficulty-controls {
+            margin: 20px 0;
+        }
+        .difficulty-btn {
+            background-color: #555;
+            margin: 0 5px;
+        }
+        .difficulty-btn.active {
+            background-color: #008CBA;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>Sliding Puzzle</h1>
+        
+        <div class="difficulty-controls">
+            <button class="btn difficulty-btn" data-difficulty="easy">Easy</button>
+            <button class="btn difficulty-btn active" data-difficulty="medium">Medium</button>
+            <button class="btn difficulty-btn" data-difficulty="hard">Hard</button>
+        </div>
+
+        <div class="stats">
+            <div>Moves: <span id="moves">0</span></div>
+            <div>Time: <span id="timer">0:00</span></div>
+        </div>
+
+        <div class="controls">
+            <button class="btn" onclick="newGame()">New Game</button>
+        </div>
+
+        <div class="puzzle-grid" id="puzzle"></div>
+    </div>
+
+    <script>
+        let currentPuzzle = [];
+        let gameState = {};
+        let timerInterval;
+
+        function newGame(difficulty = 'medium') {
+            fetch(`/new-game?difficulty=${difficulty}`)
+                .then(response => response.json())
+                .then(data => {
+                    updateGameState(data);
+                });
+        }
+
+        function updateGameState(state) {
+            gameState = state;
+            currentPuzzle = state.puzzle;
+            document.getElementById('moves').textContent = state.moves;
+            renderPuzzle();
+            
+            // Update difficulty buttons
+            document.querySelectorAll('.difficulty-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.difficulty === state.difficulty);
+            });
+
+            if (state.solved) {
+                clearInterval(timerInterval);
+                setTimeout(() => {
+                    alert(`Congratulations! You solved the puzzle in ${state.moves} moves and ${formatTime(state.time)}!`);
+                }, 100);
+            }
+        }
+
+        function renderPuzzle() {
+            const puzzleElement = document.getElementById('puzzle');
+            puzzleElement.innerHTML = '';
+            
+            currentPuzzle.forEach((number, index) => {
+                const tile = document.createElement('button');
+                tile.className = `tile ${number === null ? 'empty' : ''}`;
+                tile.textContent = number || '';
+                tile.onclick = () => moveTile(index);
+                puzzleElement.appendChild(tile);
+            });
+        }
+
+        function moveTile(position) {
+            fetch(`/move/${position}`)
+                .then(response => response.json())
+                .then(data => {
+                    updateGameState(data);
+                });
+        }
+
+        function formatTime(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = seconds % 60;
+            return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+        }
+
+        function updateTimer() {
+            fetch('/state')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('timer').textContent = formatTime(data.time);
+                });
+        }
+
+        // Set up difficulty buttons
+        document.querySelectorAll('.difficulty-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                newGame(btn.dataset.difficulty);
+            });
+        });
+
+        // Start timer updates
+        timerInterval = setInterval(updateTimer, 1000);
+
+        // Start a new game when the page loads
+        window.onload = () => newGame();
+    </script>
+</body>
+</html>
